@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # BRCE FTP服务配置脚本
-# 版本: v1.0.0 - 双向零延迟同步 + 智能卸载 + 在线更新 + 自定义目录和用户名
+# 版本: v1.0.1 - 代码审查安全修复版
 
-# 严格模式 - 暂时移除 -u 选项避免未绑定变量错误
+# 严格模式
 set -eo pipefail
 
 # 全局配置
-readonly SCRIPT_VERSION="v1.0.0"
+readonly SCRIPT_VERSION="v1.0.1"
 readonly LOG_FILE="/var/log/brce_ftp_setup.log"
 SOURCE_DIR=""
 FTP_USER=""
@@ -27,22 +27,25 @@ log_debug() {
     fi
 }
 
-echo "======================================================"
-echo "📁 BRCE FTP服务配置工具 ${SCRIPT_VERSION}"
-echo "======================================================"
-echo ""
+# 初始化函数
+init_script() {
+    echo "======================================================"
+    echo "📁 BRCE FTP服务配置工具 ${SCRIPT_VERSION}"
+    echo "======================================================"
+    echo ""
 
-# 创建日志目录（在权限检查前）
-if ! mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null; then
-    echo "警告: 无法创建日志目录，将仅输出到终端"
-    LOG_FILE="/dev/null"
-fi
+    # 创建日志目录（在权限检查前）
+    if ! mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null; then
+        echo "警告: 无法创建日志目录，将仅输出到终端"
+        LOG_FILE="/dev/null"
+    fi
 
-# 检查权限
-if [[ $EUID -ne 0 ]]; then
-    log_error "此脚本需要root权限，请使用 sudo 运行"
-    exit 1
-fi
+    # 检查权限
+    if [[ $EUID -ne 0 ]]; then
+        log_error "此脚本需要root权限，请使用 sudo 运行"
+        exit 1
+    fi
+}
 
 # 获取和验证FTP用户名 - 修复递归调用问题
 get_ftp_username() {
@@ -267,7 +270,7 @@ configure_smart_permissions() {
     
     # 参数验证
     if [[ -z "$user" || -z "$source_dir" ]]; then
-        log_error "configure_smart_permissions: 缺少必要参数 (user: '$user', source_dir: '$source_dir')"
+        log_error "configure_smart_permissions: 缺少必要参数 - user=$user, source_dir=$source_dir"
         return 1
     fi
     
@@ -356,13 +359,21 @@ create_sync_script() {
     local user="${1:-}"
     local source_dir="${2:-}"
     local target_dir="${3:-}"
-    local script_path="/usr/local/bin/ftp_sync_${user}.sh"
     
+    if [[ -z "$user" ]]; then
+        log_error "create_sync_script: 缺少用户名参数"
+        return 1
+    fi
+    
+    local script_path="/usr/local/bin/ftp_sync_${user}.sh"
     log_info "创建实时同步脚本: $script_path"
     
     # 验证参数
-    if [[ -z "$user" || -z "$source_dir" || -z "$target_dir" ]]; then
-        log_error "create_sync_script: 参数不完整 (user: '$user', source_dir: '$source_dir', target_dir: '$target_dir')"
+    if [[ -z "$source_dir" || -z "$target_dir" ]]; then
+        log_error "create_sync_script: 参数不完整"
+        log_error "  用户: $user"
+        log_error "  源目录: $source_dir" 
+        log_error "  目标目录: $target_dir"
         return 1
     fi
     
@@ -1322,6 +1333,7 @@ main_menu() {
 }
 
 # 主程序循环
+init_script
 while true; do
     main_menu
 done 
