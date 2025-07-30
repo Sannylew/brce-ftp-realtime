@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # BRCE FTP服务配置脚本
-# 版本: v1.0.2 - 修复所有语法错误和字符编码问题
-# 修复语法错误和字符编码问题
+# 版本: v1.0.3 - 修复密码显示问题
+# 修复语法错误、字符编码问题和密码显示bug
 
 # 严格模式
 set -eo pipefail
 
 # 全局配置
-readonly SCRIPT_VERSION="v1.0.2"
+readonly SCRIPT_VERSION="v1.0.3"
 readonly LOG_FILE="/var/log/brce_ftp_setup.log"
 SOURCE_DIR=""
 FTP_USER=""
@@ -687,6 +687,8 @@ install_brce_ftp() {
         fi
     fi
     # 安全设置用户密码（避免密码在进程列表中暴露）
+    # 保存密码用于显示
+    display_password="$ftp_pass"
     chpasswd <<< "$FTP_USER:$ftp_pass"
     unset ftp_pass  # 立即清除密码变量
     
@@ -738,21 +740,26 @@ install_brce_ftp() {
     
     echo ""
     echo "======================================================"
-    echo "✅ BRCE FTP服务部署完成！v2.4.0 (正式版)"
+    echo "✅ BRCE FTP服务部署完成！${SCRIPT_VERSION} (正式版)"
     echo "======================================================"
     echo ""
     echo "📋 连接信息："
     echo "   服务IP: $external_ip"
     echo "   端口: 21"
     echo "   用户: $FTP_USER"
-    echo "   密码: $ftp_pass"
+    echo "   密码: $display_password"
     echo "   访问目录: $SOURCE_DIR"
     echo ""
-    echo "🎉 v1.0.0 新特性："
+    
+    # 清除显示密码变量
+    unset display_password
+    
+    echo "🎉 v1.0.3 新特性："
     echo "   👤 自定义目录：支持任意目录路径配置"
     echo "   🔄 双向零延迟：源目录↔FTP目录实时同步"
     echo "   🛡️ 智能路径处理：自动处理相对路径和绝对路径"
     echo "   📊 目录自动创建：不存在的目录自动创建"
+    echo "   🔐 密码显示修复：正确显示生成的FTP密码"
     echo ""
     echo "💡 连接建议："
     echo "   - 使用被动模式（PASV）"
