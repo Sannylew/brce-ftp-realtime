@@ -302,7 +302,7 @@ configure_smart_permissions() {
     chown "$user":"$user" "$ftp_home"
     chmod 755 "$ftp_home"
     
-    echo "�?权限配置完成（用户拥有完整读写删除权限）"
+    echo "✅ 权限配置完成（用户拥有完整读写删除权限）"
 }
 
 # 生成vsftpd配置文件（基于主程序配置）
@@ -348,7 +348,7 @@ local_umask=022
 use_sendfile=NO
 EOF
 
-    echo "�?配置文件已生�?
+    echo "✅ 配置文件已生成"
 }
 
 # 创建实时同步脚本 - 改进错误处理和日志
@@ -552,7 +552,7 @@ WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
-    echo "�?系统服务已创�? ${service_name}.service"
+    echo "✅ 系统服务已创建 ${service_name}.service"
 }
 
 # 启动实时同步服务
@@ -565,10 +565,10 @@ start_sync_service() {
     systemctl start "$service_name"
     
     if systemctl is-active --quiet "$service_name"; then
-        echo "�?实时同步服务已启�? $service_name"
-        echo "🔥 现在文件变化将零延迟同步到FTP�?
+        echo "✅ 实时同步服务已启动 $service_name"
+        echo "🔥 现在文件变化将零延迟同步到FTP"
     else
-        echo "�?实时同步服务启动失败"
+        echo "❌ 实时同步服务启动失败"
         echo "📋 查看错误日志:"
         journalctl -u "$service_name" --no-pager -n 10
         return 1
@@ -584,7 +584,7 @@ stop_sync_service() {
     systemctl stop "$service_name" 2>/dev/null || true
     systemctl disable "$service_name" 2>/dev/null || true
     
-    echo "�?实时同步服务已停�?
+    echo "✅ 实时同步服务已停止"
 }
 
 # 主安装函数
@@ -702,44 +702,44 @@ install_brce_ftp() {
     if command -v ufw &> /dev/null; then
         ufw allow 21/tcp >/dev/null 2>&1 || true
         ufw allow 40000:40100/tcp >/dev/null 2>&1 || true
-        echo "�?UFW: 已开放FTP端口"
+        echo "✅ UFW: 已开放FTP端口"
     elif command -v firewall-cmd &> /dev/null; then
         firewall-cmd --permanent --add-service=ftp >/dev/null 2>&1 || true
         firewall-cmd --permanent --add-port=40000-40100/tcp >/dev/null 2>&1 || true
         firewall-cmd --reload >/dev/null 2>&1 || true
-        echo "�?Firewalld: 已开放FTP端口"
+        echo "✅ Firewalld: 已开放FTP端口"
     fi
     
     # 获取服务器IP（基于主程序逻辑�?    external_ip=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}' || echo "localhost")
     
     echo ""
     echo "======================================================"
-    echo "�� BRCE FTP服务部署完成！v2.4.0 (正式�?"
+    echo "✅ BRCE FTP服务部署完成！v2.4.0 (正式版)"
     echo "======================================================"
     echo ""
-    echo "📋 连接信息�?
-    echo "   服务�? $external_ip"
+    echo "📋 连接信息："
+    echo "   服务IP: $external_ip"
     echo "   端口: 21"
     echo "   用户: $FTP_USER"
     echo "   密码: $ftp_pass"
     echo "   访问目录: $SOURCE_DIR"
     echo ""
-    echo "�?v1.0.0 新特性："
-    echo "   �?自定义目�? 支持任意目录路径配置"
-    echo "   �?双向零延�? 源目录↔FTP目录实时同步"
-    echo "   �?智能路径处理: 自动处理相对路径和绝对路�?
-    echo "   �?目录自动创建: 不存在的目录自动创建"
+    echo "🎉 v1.0.0 新特性："
+    echo "   👤 自定义目录：支持任意目录路径配置"
+    echo "   🔄 双向零延迟：源目录↔FTP目录实时同步"
+    echo "   🛡️ 智能路径处理：自动处理相对路径和绝对路径"
+    echo "   📊 目录自动创建：不存在的目录自动创建"
     echo ""
-    echo "💡 连接建议�?
-    echo "   - 使用被动模式（PASV�?
+    echo "💡 连接建议："
+    echo "   - 使用被动模式（PASV）"
     echo "   - 端口范围: 40000-40100"
-    echo "   - 支持大文件传输（视频文件�?
+    echo "   - 支持大文件传输（视频文件）"
     echo ""
-    echo "🎥 现在实现了真正的双向同步�?
-    echo "   📁 root操作源目�?�?FTP立即可见"
-    echo "   📤 FTP用户操作 �?源目录立即更�?
+    echo "🎥 现在实现了真正的双向同步："
+    echo "   📁 root操作源目录，立即可见"
+    echo "   📤 FTP用户操作，源目录立即更新"
     echo ""
-    echo "🔄 可通过菜单选项6随时在线更新到最新版�?
+    echo "🔄 可通过菜单选项6随时在线更新到最新版"
 }
 
 # 安全获取当前配置信息
@@ -897,9 +897,9 @@ test_realtime_sync() {
     sleep 3
     
     if [ -f "$FTP_HOME/$(basename "$TEST_FILE")" ]; then
-        echo "�?源→FTP: 文件创建同步成功"
+        echo "✅ 源→FTP: 文件创建同步成功"
     else
-        echo "�?源→FTP: 文件创建同步失败"
+        echo "❌ 源→FTP: 文件创建同步失败"
     fi
     
     echo "📝 修改源目录测试文�?.."
@@ -909,21 +909,21 @@ test_realtime_sync() {
     sleep 3
     
     if diff "$TEST_FILE" "$FTP_HOME/$(basename "$TEST_FILE")" >/dev/null 2>&1; then
-        echo "�?源→FTP: 文件修改同步成功"
+        echo "✅ 源→FTP: 文件修改同步成功"
     else
-        echo "�?源→FTP: 文件修改同步失败"
+        echo "❌ 源→FTP: 文件修改同步失败"
     fi
     
-    echo "🗑�?删除源目录测试文�?.."
+    echo "🗑️ 删除源目录测试文?.."
     rm -f "$TEST_FILE"
     
     echo "⏱️  等待3秒检查同�?.."
     sleep 3
     
     if [ ! -f "$FTP_HOME/$(basename "$TEST_FILE")" ]; then
-        echo "�?源→FTP: 文件删除同步成功"
+        echo "✅ 源→FTP: 文件删除同步成功"
     else
-        echo "�?源→FTP: 文件删除同步失败"
+        echo "❌ 源→FTP: 文件删除同步失败"
     fi
     
     echo ""
@@ -943,9 +943,9 @@ test_realtime_sync() {
     
     SOURCE_TEST_FILE="$SOURCE_DIR/$(basename "$FTP_TEST_FILE")"
     if [ -f "$SOURCE_TEST_FILE" ]; then
-        echo "�?FTP→源: 文件创建同步成功"
+        echo "✅ FTP→源: 文件创建同步成功"
     else
-        echo "�?FTP→源: 文件创建同步失败"
+        echo "❌ FTP→源: 文件创建同步失败"
     fi
     
     echo "📝 修改FTP目录测试文件..."
@@ -958,24 +958,24 @@ test_realtime_sync() {
     sleep 3
     
     if [ -f "$SOURCE_TEST_FILE" ] && diff "$FTP_TEST_FILE" "$SOURCE_TEST_FILE" >/dev/null 2>&1; then
-        echo "�?FTP→源: 文件修改同步成功"
+        echo "✅ FTP→源: 文件修改同步成功"
     else
-        echo "�?FTP→源: 文件修改同步失败"
+        echo "❌ FTP→源: 文件修改同步失败"
     fi
     
-    echo "🗑�?删除FTP目录测试文件..."
+    echo "🗑️ 删除FTP目录测试文件..."
     rm -f "$FTP_TEST_FILE"
     
     echo "⏱️  等待3秒检查同�?.."
     sleep 3
     
     if [ ! -f "$SOURCE_TEST_FILE" ]; then
-        echo "�?FTP→源: 文件删除同步成功"
+        echo "✅ FTP→源: 文件删除同步成功"
         echo ""
-        echo "🎉 双向实时同步功能完全正常�?
+        echo "🎉 双向实时同步功能完全正常！"
         echo "🎉 双向实时同步功能完全正常！"
     else
-        echo "?FTP→源: 文件删除同步失败"
+        echo "❌ FTP→源: 文件删除同步失败"
     fi
 }
 
@@ -991,7 +991,7 @@ update_script() {
     TEMP_SCRIPT="/tmp/brce_ftp_setup_new.sh"
     BACKUP_SCRIPT="${CURRENT_SCRIPT}.backup.$(date +%Y%m%d_%H%M%S)"
     
-    echo "📋 更新信息�?
+    echo "📋 更新信息："
     echo "   - 当前脚本: $CURRENT_SCRIPT"
     echo "   - 远程地址: $SCRIPT_URL"
     echo "   - 备份位置: $BACKUP_SCRIPT"
@@ -999,73 +999,73 @@ update_script() {
     
     # 检查网络连�?    echo "🌐 检查网络连�?.."
     if ! curl -s --max-time 10 https://github.com >/dev/null 2>&1; then
-        echo "�?网络连接失败，请检查网络设�?
+        echo "❌ 网络连接失败，请检查网络设置"
         return 1
     fi
-    echo "�?网络连接正常"
+    echo "✅ 网络连接正常"
     
-    # 下载最新版�?    echo "📥 下载最新版�?.."
+    # 下载最新版?    echo "📥 下载最新版?.."
     if ! curl -s --max-time 30 "$SCRIPT_URL" -o "$TEMP_SCRIPT"; then
-        echo "�?下载失败，请稍后重试"
+        echo "❌ 下载失败，请稍后重试"
         return 1
     fi
     
     # 检查下载的文件
     if [ ! -f "$TEMP_SCRIPT" ] || [ ! -s "$TEMP_SCRIPT" ]; then
-        echo "�?下载的文件无�?
+        echo "❌ 下载的文件无效"
         rm -f "$TEMP_SCRIPT"
         return 1
     fi
-    echo "�?下载完成"
+    echo "✅ 下载完成"
     
     # 提取版本信息
     CURRENT_VERSION=$(grep "# 版本:" "$CURRENT_SCRIPT" | head -1 | sed 's/.*版本: *//' | sed 's/ .*//')
     NEW_VERSION=$(grep "# 版本:" "$TEMP_SCRIPT" | head -1 | sed 's/.*版本: *//' | sed 's/ .*//')
     
     echo ""
-    echo "📊 版本对比�?
+    echo "📊 版本对比："
     echo "   - 当前版本: ${CURRENT_VERSION:-"未知"}"
-    echo "   - 最新版�? ${NEW_VERSION:-"未知"}"
+    echo "   - 最新版本: ${NEW_VERSION:-"未知"}"
     echo ""
     
     # 版本比较
     if [ "$CURRENT_VERSION" = "$NEW_VERSION" ] && [ -n "$CURRENT_VERSION" ]; then
         echo "ℹ️  您已经是最新版本！"
-        read -p "是否强制更新�?y/N): " force_update
+        read -p "是否强制更新？(y/N): " force_update
         if [[ ! "$force_update" =~ ^[Yy]$ ]]; then
-            echo "�?保持当前版本"
+            echo "✅ 保持当前版本"
             rm -f "$TEMP_SCRIPT"
             return 0
         fi
     fi
     
-    # 显示更新日志（如果有的话�?    echo "📝 检查更新说�?.."
-    if grep -q "v1.0.0.*自定义目�? "$TEMP_SCRIPT"; then
+    # 显示更新日志（如果有的话�?    echo "📝 检查更新说明..."
+    if grep -q "v1.0.0.*自定义目? "$TEMP_SCRIPT"; then
         echo "🚀 v1.0.0 正式版特性："
         echo "   - 📁 自定义目录：支持任意目录路径配置"
         echo "   - 🔄 双向实时同步：FTP用户操作立即同步到源目录"
-        echo "   - 🛡?智能路径处理：自动处理相对路径和绝对路径"
-        echo "   - 📊 在线更新：一键从GitHub更新到最新版�?
+        echo "   - 🛡️ 智能路径处理：自动处理相对路径和绝对路径"
+        echo "   - 📊 在线更新：一键从GitHub更新到最新版"
         echo ""
-    elif grep -q "v2.3.0 正式�? "$TEMP_SCRIPT"; then
+    elif grep -q "v2.3.0 正式版" "$TEMP_SCRIPT"; then
         echo "🎉 v2.3.0 正式版特性："
         echo "   - 🔄 双向实时同步：FTP用户操作立即同步到源目录"
-        echo "   - 🔒 防循环机制：智能锁机制避免同步循�?
-        echo "   - 📊 在线更新：一键从GitHub更新到最新版�?
-        echo "   - 🛡�?智能卸载：完整的卸载和脚本管理功�?
+        echo "   - 🔒 防循环机制：智能锁机制避免同步循?"
+        echo "   - 📊 在线更新：一键从GitHub更新到最新版"
+        echo "   - 🛡️ 智能卸载：完整的卸载和脚本管理功能"
         echo ""
     elif grep -q "v2.2 重大更新" "$TEMP_SCRIPT"; then
         echo "🔥 v2.2 新功能："
         echo "   - 🔄 双向实时同步：FTP用户操作立即同步到源目录"
-        echo "   - 🔒 防循环机制：智能锁机制避免同步循�?
-        echo "   - 📊 性能优化：详细的性能影响分析和优化建�?
+        echo "   - 🔒 防循环机制：智能锁机制避免同步循?"
+        echo "   - 📊 性能优化：详细的性能影响分析和优化建议"
         echo ""
     fi
     
     # 确认更新
-    read -p "🔄 确定要更新到最新版本吗�?y/N): " confirm_update
+    read -p "🔄 确定要更新到最新版本吗？(y/N): " confirm_update
     if [[ ! "$confirm_update" =~ ^[Yy]$ ]]; then
-        echo "�?取消更新"
+        echo "✅ 取消更新"
         rm -f "$TEMP_SCRIPT"
         return 0
     fi
@@ -1075,9 +1075,9 @@ update_script() {
     if systemctl is-active --quiet brce-ftp-sync 2>/dev/null; then
         SERVICE_RUNNING=true
         echo "⚠️  检测到BRCE FTP服务正在运行"
-        read -p "更新后需要重启服务，是否继续�?y/N): " restart_confirm
+        read -p "更新后需要重启服务，是否继续？(y/N): " restart_confirm
         if [[ ! "$restart_confirm" =~ ^[Yy]$ ]]; then
-            echo "�?取消更新"
+            echo "✅ 取消更新"
             rm -f "$TEMP_SCRIPT"
             return 0
         fi
@@ -1086,24 +1086,24 @@ update_script() {
     # 备份当前脚本
     echo "💾 备份当前脚本..."
     if ! cp "$CURRENT_SCRIPT" "$BACKUP_SCRIPT"; then
-        echo "�?备份失败"
+        echo "❌ 备份失败"
         rm -f "$TEMP_SCRIPT"
         return 1
     fi
-    echo "�?备份完成: $BACKUP_SCRIPT"
+    echo "✅ 备份完成: $BACKUP_SCRIPT"
     
-    # 验证新脚本语�?    echo "🔍 验证新脚�?.."
+    # 验证新脚本语?    echo "🔍 验证新脚本..."
     if ! bash -n "$TEMP_SCRIPT"; then
-        echo "�?新脚本语法错�?
+        echo "❌ 新脚本语法错误"
         rm -f "$TEMP_SCRIPT"
         return 1
     fi
-    echo "�?脚本验证通过"
+    echo "✅ 脚本验证通过"
     
     # 替换脚本
     echo "🔄 更新脚本..."
     if ! cp "$TEMP_SCRIPT" "$CURRENT_SCRIPT"; then
-        echo "�?更新失败，恢复备�?
+        echo "❌ 更新失败，恢复备?"
         cp "$BACKUP_SCRIPT" "$CURRENT_SCRIPT"
         rm -f "$TEMP_SCRIPT"
         return 1
@@ -1113,7 +1113,7 @@ update_script() {
     chmod +x "$CURRENT_SCRIPT"
     rm -f "$TEMP_SCRIPT"
     
-    echo "�?脚本更新成功�?
+    echo "✅ 脚本更新成功"
     echo ""
     
     # 重启服务（如果需要）
@@ -1121,27 +1121,27 @@ update_script() {
         echo "🔄 重启BRCE FTP服务..."
         systemctl restart brce-ftp-sync 2>/dev/null || true
         if systemctl is-active --quiet brce-ftp-sync; then
-            echo "�?服务重启成功"
+            echo "✅ 服务重启成功"
         else
-            echo "⚠️  服务重启可能有问题，请检查状�?
+            echo "⚠️  服务重启可能有问题，请检查状态"
         fi
         echo ""
     fi
     
-    echo "🎉 更新完成�?
+    echo "🎉 更新完成"
     echo ""
-    echo "📋 更新摘要�?
-    echo "   - 原版�? ${CURRENT_VERSION:-"未知"}"
-    echo "   - 新版�? ${NEW_VERSION:-"未知"}"
+    echo "📋 更新摘要："
+    echo "   - 原版: ${CURRENT_VERSION:-"未知"}"
+    echo "   - 新版: ${NEW_VERSION:-"未知"}"
     echo "   - 备份文件: $BACKUP_SCRIPT"
     echo ""
-    echo "💡 提示�?
+    echo "💡 提示："
     echo "   - 如果有问题，可以恢复备份: cp $BACKUP_SCRIPT $CURRENT_SCRIPT"
-    echo "   - 建议运行菜单选项2检查服务状�?
+    echo "   - 建议运行菜单选项2检查服务状态"
     echo "   - 建议运行菜单选项4测试功能"
     echo ""
     
-    read -p "🔄 是否立即重新启动脚本�?y/N): " restart_script
+    read -p "🔄 是否立即重新启动脚本？(y/N): " restart_script
     if [[ "$restart_script" =~ ^[Yy]$ ]]; then
         echo "🚀 重新启动脚本..."
         exec "$CURRENT_SCRIPT"
@@ -1175,11 +1175,11 @@ uninstall_brce_ftp() {
     fi
     
     echo ""
-    echo "🔧 卸载选项�?
+    echo "🔧 卸载选项："
     echo "1) 完全卸载（包含vsftpd软件包）"
-    echo "2) 仅卸载BRCE配置（保留vsftpd�?
+    echo "2) 仅卸载BRCE配置（保留vsftpd）"
     echo ""
-    read -p "请选择卸载方式 (1/2，默�? 2): " uninstall_type
+    read -p "请选择卸载方式 (1/2，默认 2): " uninstall_type
     uninstall_type=${uninstall_type:-2}
     
     echo ""
@@ -1190,16 +1190,16 @@ uninstall_brce_ftp() {
     echo "⏹️ 停止实时同步服务..."
     stop_sync_service
     
-    echo "🗑�?删除同步服务文件..."
+    echo "🗑️ 删除同步服务文件..."
     rm -f "/etc/systemd/system/brce-ftp-sync.service"
     rm -f "/usr/local/bin/ftp_sync_${FTP_USER}.sh"
     systemctl daemon-reload
     
-    echo "🗑�?删除FTP用户..."
+    echo "🗑️ 删除FTP用户..."
     userdel -r "$FTP_USER" 2>/dev/null || true
     
-    echo "🗑�?恢复配置文件..."
-    # 恢复vsftpd配置（如果有备份�?    latest_backup=$(ls /etc/vsftpd.conf.backup.* 2>/dev/null | tail -1)
+    echo "🗑️ 恢复配置文件..."
+    # 恢复vsftpd配置（如果有备份?    latest_backup=$(ls /etc/vsftpd.conf.backup.* 2>/dev/null | tail -1)
     if [ -f "$latest_backup" ]; then
         echo "📋 恢复vsftpd配置: $latest_backup"
         cp "$latest_backup" /etc/vsftpd.conf
@@ -1208,46 +1208,46 @@ uninstall_brce_ftp() {
     fi
     
     # 清理fstab中的bind mount条目（如果有�?    if grep -q "/home/$FTP_USER/ftp" /etc/fstab 2>/dev/null; then
-        echo "🗑�?清理fstab条目..."
+        echo "🗑️ 清理fstab条目..."
         sed -i "\|/home/$FTP_USER/ftp|d" /etc/fstab 2>/dev/null || true
     fi
     
     # 完全卸载选项
     if [[ "$uninstall_type" == "1" ]]; then
         echo ""
-        echo "🗑�?卸载vsftpd软件�?.."
-        read -p "⚠️  确定要卸载vsftpd软件包吗�?y/N): " remove_pkg
+        echo "🗑️ 卸载vsftpd软件包..."
+        read -p "⚠️ 确定要卸载vsftpd软件包吗？(y/N): " remove_pkg
         if [[ "$remove_pkg" =~ ^[Yy]$ ]]; then
             if command -v apt-get &> /dev/null; then
                 apt-get remove --purge -y vsftpd 2>/dev/null || true
-                echo "�?vsftpd已卸�?
+                echo "✅ vsftpd已卸载"
             elif command -v yum &> /dev/null; then
                 yum remove -y vsftpd 2>/dev/null || true
-                echo "�?vsftpd已卸�?
+                echo "✅ vsftpd已卸载"
             fi
         else
-            echo "💡 保留vsftpd软件�?
+            echo "💡 保留vsftpd软件包"
         fi
     fi
     
     echo ""
-    echo "🔄 脚本管理选项�?
-    echo "📄 当前脚本: $(readlink -f "$0")"
+    echo "🔄 脚本管理选项："
+    echo "�� 当前脚本: $(readlink -f "$0")"
     echo ""
-    read -p "🗑�?是否删除本脚本文件？(y/N): " remove_script
+    read -p "🗑️ 是否删除本脚本文件？(y/N): " remove_script
     
     if [[ "$remove_script" =~ ^[Yy]$ ]]; then
         script_path=$(readlink -f "$0")
-        echo "🗑�?准备删除脚本: $script_path"
-        echo "�?3秒后删除脚本文件..."
-        sleep 1 && echo "�?2..." && sleep 1 && echo "�?1..." && sleep 1
+        echo "🗑️ 准备删除脚本: $script_path"
+        echo "💡 3秒后删除脚本文件..."
+        sleep 1 && echo "💡 2..." && sleep 1 && echo "💡 1..." && sleep 1
         
-        # 创建自删除脚�?        cat > /tmp/cleanup_brce_script.sh << EOF
+        # 创建自删除脚?        cat > /tmp/cleanup_brce_script.sh << EOF
 #!/bin/bash
-echo "🗑�?删除BRCE FTP脚本..."
+echo "🗑️ 删除BRCE FTP脚本..."
 rm -f "$script_path"
 if [ ! -f "$script_path" ]; then
-    echo "�?脚本已删�? $script_path"
+    echo "✅ 脚本已删除: $script_path"
 else
     echo "⚠️  脚本删除失败: $script_path"
 fi
@@ -1255,14 +1255,14 @@ rm -f /tmp/cleanup_brce_script.sh
 EOF
         chmod +x /tmp/cleanup_brce_script.sh
         
-        echo "�?卸载完成"
+        echo "✅ 卸载完成"
         echo "💡 注意: BRCE目录 $SOURCE_DIR 保持不变"
         echo "🚀 正在删除脚本文件..."
         
-        # 执行自删除并退�?        exec /tmp/cleanup_brce_script.sh
+        # 执行自删除并退?        exec /tmp/cleanup_brce_script.sh
     else
         echo "💡 保留脚本文件: $(readlink -f "$0")"
-        echo "�?卸载完成"
+        echo "✅ 卸载完成"
         echo "💡 注意: BRCE目录 $SOURCE_DIR 保持不变"
         echo ""
         echo "🔄 脚本已保留，可以随时重新配置FTP服务"
@@ -1270,16 +1270,17 @@ EOF
     fi
 }
 
-# 主菜�?main_menu() {
+# 主菜单
+main_menu() {
     echo ""
-    echo "请选择操作�?
-    echo "1) 🚀 安装/配置BRCE FTP服务 (双向零延�?"
-    echo "2) 📊 查看FTP服务状�?
+    echo "请选择操作："
+    echo "1) 🚀 安装/配置BRCE FTP服务 (双向零延迟)"
+    echo "2) 📊 查看FTP服务状态"
     echo "3) 🔄 重启FTP服务"
     echo "4) 🧪 测试双向实时同步功能"
-    echo "5) 🗑�?卸载FTP服务"
+    echo "5) 🗑️ 卸载FTP服务"
     echo "6) 🔄 在线更新脚本"
-    echo "0) 退�?
+    echo "0) 退出"
     echo ""
     
     read -p "请输入选项 (0-6): " choice
@@ -1296,9 +1297,9 @@ EOF
             systemctl restart vsftpd
             systemctl restart brce-ftp-sync 2>/dev/null || true
             if systemctl is-active --quiet vsftpd; then
-                echo "�?FTP服务重启成功"
+                echo "✅ FTP服务重启成功"
             else
-                echo "�?FTP服务重启失败"
+                echo "❌ FTP服务重启失败"
             fi
             ;;
         4)
@@ -1311,15 +1312,16 @@ EOF
             update_script
             ;;
         0)
-            echo "👋 退出程�?
+            echo "👋 退出程序"
             exit 0
             ;;
         *)
-            echo "�?无效选项"
+            echo "❌ 无效选项"
             ;;
     esac
 }
 
-# 主程序循�?while true; do
+# 主程序循环
+while true; do
     main_menu
 done 
