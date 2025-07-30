@@ -29,7 +29,7 @@
 
 ```bash
 # 下载脚本
-wget https://raw.githubusercontent.com/YOUR_USERNAME/brce-ftp-realtime/main/brce_ftp_setup.sh
+wget https://raw.githubusercontent.com/Sannylew/brce-ftp-realtime/main/brce_ftp_setup.sh
 
 # 运行脚本
 sudo chmod +x brce_ftp_setup.sh

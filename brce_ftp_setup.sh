@@ -895,7 +895,7 @@ update_script() {
     echo "🔄 BRCE FTP脚本在线更新"
     echo "======================================================"
     
-    SCRIPT_URL="https://raw.githubusercontent.com/Sannylew/ftp-ftps-setup/main/brce_ftp_setup.sh"
+    SCRIPT_URL="https://raw.githubusercontent.com/Sannylew/brce-ftp-realtime/main/brce_ftp_setup.sh"
     CURRENT_SCRIPT="$(readlink -f "$0")"
     TEMP_SCRIPT="/tmp/brce_ftp_setup_new.sh"
     BACKUP_SCRIPT="${CURRENT_SCRIPT}.backup.$(date +%Y%m%d_%H%M%S)"
