@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # BRCE FTP服务配置脚本
-# 版本: v1.0.1 - 代码审查安全修复版
+# 版本: v1.0.2 - 修复所有语法错误和字符编码问题
+# 修复语法错误和字符编码问题
 
 # 严格模式
 set -eo pipefail
 
 # 全局配置
-readonly SCRIPT_VERSION="v1.0.1"
+readonly SCRIPT_VERSION="v1.0.2"
 readonly LOG_FILE="/var/log/brce_ftp_setup.log"
 SOURCE_DIR=""
 FTP_USER=""
@@ -281,18 +282,21 @@ configure_smart_permissions() {
     
     mkdir -p "$ftp_home"
     
-    # 配置用户主目�?    chown root:root "$user_home"
+    # 配置用户主目录
+    chown root:root "$user_home"
     chmod 755 "$user_home"
     
-    # 确保源目录存�?    mkdir -p "$source_dir"
+    # 确保源目录存在
+    mkdir -p "$source_dir"
     
-    # 关键修复：设置源目录权限，确保FTP用户有完整权�?    echo "🔧 设置源目录权�? $source_dir"
+    # 关键修复：设置源目录权限，确保FTP用户有完整权限
+    echo "🔧 设置源目录权限 $source_dir"
     chown -R "$user":"$user" "$source_dir"
     chmod -R 755 "$source_dir"
     
     # 如果源目录在/opt下，设置特殊权限
     if [[ "$source_dir" == /opt/* ]]; then
-        echo "⚠️  检测到/opt目录，设置访问权�?.."
+        echo "⚠️  检测到/opt目录，设置访问权限..."
         chmod o+x /opt 2>/dev/null || true
         dirname_path=$(dirname "$source_dir")
         while [ "$dirname_path" != "/" ] && [ "$dirname_path" != "/opt" ]; do
@@ -319,7 +323,8 @@ generate_optimal_config() {
     
     log_info "生成vsftpd配置..."
     
-    # 备份原配�?    [ -f /etc/vsftpd.conf ] && cp /etc/vsftpd.conf /etc/vsftpd.conf.backup.$(date +%Y%m%d_%H%M%S)
+    # 备份原配置
+    [ -f /etc/vsftpd.conf ] && cp /etc/vsftpd.conf /etc/vsftpd.conf.backup.$(date +%Y%m%d_%H%M%S)
     
     # 生成优化的配置（基于主程序，适合视频文件，禁用缓存）
     cat > /etc/vsftpd.conf <<EOF
@@ -347,7 +352,8 @@ hide_ids=YES
 use_localtime=YES
 file_open_mode=0755
 local_umask=022
-# 禁用缓存，确保实时�?ls_recurse_enable=NO
+# 禁用缓存，确保实时性
+ls_recurse_enable=NO
 use_sendfile=NO
 EOF
 
@@ -666,9 +672,11 @@ install_brce_ftp() {
         exit 1
     fi
     
-    # 检查实时同步依�?    check_sync_dependencies
+    # 检查实时同步依赖
+    check_sync_dependencies
     
-    # 创建用户（基于主程序逻辑�?    echo "👤 配置用户..."
+    # 创建用户（基于主程序逻辑）
+    echo "👤 配置用户..."
     if id -u "$FTP_USER" &>/dev/null; then
         echo "⚠️  用户已存在，重置密码"
     else
@@ -689,13 +697,16 @@ install_brce_ftp() {
     # 停止旧的实时同步服务（如果存在）
     stop_sync_service
     
-    # 卸载旧挂载（如果存在�?    if mountpoint -q "$ftp_home" 2>/dev/null; then
+    # 卸载旧挂载（如果存在）
+    if mountpoint -q "$ftp_home" 2>/dev/null; then
         echo "📤 卸载旧bind挂载"
         umount "$ftp_home" 2>/dev/null || true
-        # 从fstab中移�?        sed -i "\|$ftp_home|d" /etc/fstab 2>/dev/null || true
+        # 从fstab中移除
+        sed -i "\|$ftp_home|d" /etc/fstab 2>/dev/null || true
     fi
     
-    # 创建实时同步脚本和服�?    create_sync_script "$FTP_USER" "$SOURCE_DIR" "$ftp_home"
+    # 创建实时同步脚本和服务
+    create_sync_script "$FTP_USER" "$SOURCE_DIR" "$ftp_home"
     create_sync_service "$FTP_USER"
     
     # 生成配置
@@ -709,7 +720,8 @@ install_brce_ftp() {
     # 启动实时同步服务
     start_sync_service
     
-    # 配置防火墙（基于主程序逻辑�?    echo "🔥 配置防火�?.."
+    # 配置防火墙（基于主程序逻辑）
+    echo "🔥 配置防火墙..."
     if command -v ufw &> /dev/null; then
         ufw allow 21/tcp >/dev/null 2>&1 || true
         ufw allow 40000:40100/tcp >/dev/null 2>&1 || true
@@ -721,7 +733,8 @@ install_brce_ftp() {
         echo "✅ Firewalld: 已开放FTP端口"
     fi
     
-    # 获取服务器IP（基于主程序逻辑�?    external_ip=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}' || echo "localhost")
+    # 获取服务器IP（基于主程序逻辑）
+    external_ip=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}' || echo "localhost")
     
     echo ""
     echo "======================================================"
@@ -904,7 +917,7 @@ test_realtime_sync() {
     echo "📝 在源目录创建测试文件: $TEST_FILE"
     echo "实时同步测试(源→FTP) - $(date)" > "$TEST_FILE"
     
-    echo "⏱️  等待3秒检查同�?.."
+    echo "⏱️  等待3秒检查同步..."
     sleep 3
     
     if [ -f "$FTP_HOME/$(basename "$TEST_FILE")" ]; then
@@ -913,10 +926,10 @@ test_realtime_sync() {
         echo "❌ 源→FTP: 文件创建同步失败"
     fi
     
-    echo "📝 修改源目录测试文�?.."
+    echo "📝 修改源目录测试文件..."
     echo "修改后的内容(源→FTP) - $(date)" >> "$TEST_FILE"
     
-    echo "⏱️  等待3秒检查同�?.."
+    echo "⏱️  等待3秒检查同步..."
     sleep 3
     
     if diff "$TEST_FILE" "$FTP_HOME/$(basename "$TEST_FILE")" >/dev/null 2>&1; then
@@ -925,10 +938,10 @@ test_realtime_sync() {
         echo "❌ 源→FTP: 文件修改同步失败"
     fi
     
-    echo "🗑️ 删除源目录测试文?.."
+    echo "🗑️ 删除源目录测试文件..."
     rm -f "$TEST_FILE"
     
-    echo "⏱️  等待3秒检查同�?.."
+    echo "⏱️  等待3秒检查同步..."
     sleep 3
     
     if [ ! -f "$FTP_HOME/$(basename "$TEST_FILE")" ]; then
@@ -949,7 +962,7 @@ test_realtime_sync() {
         chown "$FTP_USER:$FTP_USER" "$FTP_TEST_FILE"
     }
     
-    echo "⏱️  等待3秒检查同�?.."
+    echo "⏱️  等待3秒检查同步..."
     sleep 3
     
     SOURCE_TEST_FILE="$SOURCE_DIR/$(basename "$FTP_TEST_FILE")"
@@ -965,7 +978,7 @@ test_realtime_sync() {
         chown "$FTP_USER:$FTP_USER" "$FTP_TEST_FILE"
     }
     
-    echo "⏱️  等待3秒检查同�?.."
+    echo "⏱️  等待3秒检查同步..."
     sleep 3
     
     if [ -f "$SOURCE_TEST_FILE" ] && diff "$FTP_TEST_FILE" "$SOURCE_TEST_FILE" >/dev/null 2>&1; then
@@ -977,7 +990,7 @@ test_realtime_sync() {
     echo "🗑️ 删除FTP目录测试文件..."
     rm -f "$FTP_TEST_FILE"
     
-    echo "⏱️  等待3秒检查同�?.."
+    echo "⏱️  等待3秒检查同步..."
     sleep 3
     
     if [ ! -f "$SOURCE_TEST_FILE" ]; then
@@ -1008,7 +1021,8 @@ update_script() {
     echo "   - 备份位置: $BACKUP_SCRIPT"
     echo ""
     
-    # 检查网络连�?    echo "🌐 检查网络连�?.."
+    # 检查网络连接
+    echo "🌐 检查网络连接..."
     if ! curl -s --max-time 10 https://github.com >/dev/null 2>&1; then
         echo "❌ 网络连接失败，请检查网络设置"
         return 1
@@ -1050,8 +1064,9 @@ update_script() {
         fi
     fi
     
-    # 显示更新日志（如果有的话�?    echo "📝 检查更新说明..."
-    if grep -q "v1.0.0.*自定义目? "$TEMP_SCRIPT"; then
+    # 显示更新日志（如果有的话）
+    echo "📝 检查更新说明..."
+    if grep -q "v1.0.0.*自定义目录" "$TEMP_SCRIPT"; then
         echo "🚀 v1.0.0 正式版特性："
         echo "   - 📁 自定义目录：支持任意目录路径配置"
         echo "   - 🔄 双向实时同步：FTP用户操作立即同步到源目录"
@@ -1218,7 +1233,8 @@ uninstall_brce_ftp() {
         echo "⚠️  未找到vsftpd配置备份"
     fi
     
-    # 清理fstab中的bind mount条目（如果有�?    if grep -q "/home/$FTP_USER/ftp" /etc/fstab 2>/dev/null; then
+    # 清理fstab中的bind mount条目（如果有）
+    if grep -q "/home/$FTP_USER/ftp" /etc/fstab 2>/dev/null; then
         echo "🗑️ 清理fstab条目..."
         sed -i "\|/home/$FTP_USER/ftp|d" /etc/fstab 2>/dev/null || true
     fi
@@ -1243,7 +1259,7 @@ uninstall_brce_ftp() {
     
     echo ""
     echo "🔄 脚本管理选项："
-    echo "�� 当前脚本: $(readlink -f "$0")"
+    echo "📋 当前脚本: $(readlink -f "$0")"
     echo ""
     read -p "🗑️ 是否删除本脚本文件？(y/N): " remove_script
     
