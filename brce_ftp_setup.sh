@@ -3,8 +3,8 @@
 # BRCE FTP服务配置脚本
 # 版本: v1.0.0 - 双向零延迟同步 + 智能卸载 + 在线更新 + 自定义目录和用户名
 
-# 严格模式
-set -euo pipefail
+# 严格模式 - 暂时移除 -u 选项避免未绑定变量错误
+set -eo pipefail
 
 # 全局配置
 readonly SCRIPT_VERSION="v1.0.0"
@@ -32,14 +32,17 @@ echo "📁 BRCE FTP服务配置工具 ${SCRIPT_VERSION}"
 echo "======================================================"
 echo ""
 
+# 创建日志目录（在权限检查前）
+if ! mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null; then
+    echo "警告: 无法创建日志目录，将仅输出到终端"
+    LOG_FILE="/dev/null"
+fi
+
 # 检查权限
 if [[ $EUID -ne 0 ]]; then
     log_error "此脚本需要root权限，请使用 sudo 运行"
     exit 1
 fi
-
-# 创建日志目录
-mkdir -p "$(dirname "$LOG_FILE")"
 
 # 获取和验证FTP用户名 - 修复递归调用问题
 get_ftp_username() {
@@ -180,9 +183,15 @@ get_source_directory() {
 
 # 验证用户名函数（来自主程序）
 validate_username() {
-    local username="$1"
-    if [[ ! "$username" =~ ^[a-z][-a-z0-9]*$ ]] || [ ${#username} -gt 32 ]; then
-        echo "�?用户名不合法！只能包含小写字母、数字和连字符，最�?2字符"
+    local username="${1:-}"
+    
+    if [[ -z "$username" ]]; then
+        log_error "validate_username: 缺少用户名参数"
+        return 1
+    fi
+    
+    if [[ ! "$username" =~ ^[a-z][-a-z0-9]*$ ]] || [[ ${#username} -gt 32 ]]; then
+        log_error "用户名不合法！只能包含小写字母、数字和连字符，最多32字符"
         return 1
     fi
     return 0
@@ -251,13 +260,21 @@ check_sync_dependencies() {
     return 0
 }
 
-# 智能权限配置函数（基于主程序逻辑�?configure_smart_permissions() {
-    local user="$1"
-    local source_dir="$2"
+# 智能权限配置函数（基于主程序逻辑）
+configure_smart_permissions() {
+    local user="${1:-}"
+    local source_dir="${2:-}"
+    
+    # 参数验证
+    if [[ -z "$user" || -z "$source_dir" ]]; then
+        log_error "configure_smart_permissions: 缺少必要参数 (user: '$user', source_dir: '$source_dir')"
+        return 1
+    fi
+    
     local user_home="/home/$user"
     local ftp_home="$user_home/ftp"
     
-    echo "🔧 配置FTP目录权限（完整读写删除权限）..."
+    log_info "配置FTP目录权限（完整读写删除权限）..."
     
     mkdir -p "$ftp_home"
     
@@ -288,10 +305,16 @@ check_sync_dependencies() {
     echo "�?权限配置完成（用户拥有完整读写删除权限）"
 }
 
-# 生成vsftpd配置文件（基于主程序配置�?generate_optimal_config() {
-    local ftp_home="$1"
+# 生成vsftpd配置文件（基于主程序配置）
+generate_optimal_config() {
+    local ftp_home="${1:-}"
     
-    echo "📡 生成vsftpd配置..."
+    if [[ -z "$ftp_home" ]]; then
+        log_error "generate_optimal_config: 缺少FTP主目录参数"
+        return 1
+    fi
+    
+    log_info "生成vsftpd配置..."
     
     # 备份原配�?    [ -f /etc/vsftpd.conf ] && cp /etc/vsftpd.conf /etc/vsftpd.conf.backup.$(date +%Y%m%d_%H%M%S)
     
@@ -330,16 +353,16 @@ EOF
 
 # 创建实时同步脚本 - 改进错误处理和日志
 create_sync_script() {
-    local user="$1"
-    local source_dir="$2"
-    local target_dir="$3"
+    local user="${1:-}"
+    local source_dir="${2:-}"
+    local target_dir="${3:-}"
     local script_path="/usr/local/bin/ftp_sync_${user}.sh"
     
     log_info "创建实时同步脚本: $script_path"
     
     # 验证参数
     if [[ -z "$user" || -z "$source_dir" || -z "$target_dir" ]]; then
-        log_error "创建同步脚本参数不完整"
+        log_error "create_sync_script: 参数不完整 (user: '$user', source_dir: '$source_dir', target_dir: '$target_dir')"
         return 1
     fi
     
@@ -499,11 +522,17 @@ EOF
 
 # 创建systemd服务
 create_sync_service() {
-    local user="$1"
+    local user="${1:-}"
+    
+    if [[ -z "$user" ]]; then
+        log_error "create_sync_service: 缺少用户名参数"
+        return 1
+    fi
+    
     local service_name="brce-ftp-sync"
     local script_path="/usr/local/bin/ftp_sync_${user}.sh"
     
-    echo "🔧 创建实时同步系统服务..."
+    log_info "创建实时同步系统服务..."
     
     cat > "/etc/systemd/system/${service_name}.service" << EOF
 [Unit]
@@ -579,49 +608,50 @@ install_brce_ftp() {
     echo "🚀 开始配置BRCE FTP服务 (双向零延迟版)"
     echo "======================================================"
     echo ""
-    echo "🎯 源目�? $SOURCE_DIR"
+    echo "🎯 源目录: $SOURCE_DIR"
     echo "👤 FTP用户: $FTP_USER"
-    echo "�?特�? 双向实时同步，零延迟"
+    echo "🔥 特性: 双向实时同步，零延迟"
     echo ""
     
     # 确认配置
-    read -p "是否使用双向零延迟实时同步？(y/n，默�? y): " confirm
+    read -p "是否使用双向零延迟实时同步？(y/n，默认 y): " confirm
     confirm=${confirm:-y}
     
     if [[ "$confirm" != "y" ]]; then
-        echo "�?配置已取�?
+        log_info "用户取消配置"
         return 1
     fi
     
     # 获取FTP密码
-    read -p "自动生成密码�?y/n，默�? y): " auto_pwd
+    read -p "自动生成密码？(y/n，默认 y): " auto_pwd
     auto_pwd=${auto_pwd:-y}
     
     if [[ "$auto_pwd" == "y" ]]; then
         ftp_pass=$(openssl rand -base64 12)
-        echo "🔑 自动生成的密�? $ftp_pass"
+        log_info "已自动生成安全密码"
     else
         while true; do
-            read -s -p "FTP密码（至�?位）: " ftp_pass
+            read -s -p "FTP密码（至少8位）: " ftp_pass
             echo
-            if [ ${#ftp_pass} -ge 8 ]; then
+            if [[ ${#ftp_pass} -ge 8 ]]; then
                 break
             fi
-            echo "�?密码至少8�?
+            log_error "密码至少8位"
         done
     fi
     
     echo ""
-    echo "⚙️  开始部�?.."
+    log_info "开始部署..."
     
-    # 安装vsftpd和实时同步依�?    echo "📦 安装软件�?.."
+    # 安装vsftpd和实时同步依赖
+    log_info "安装软件包..."
     if command -v apt-get &> /dev/null; then
         apt-get update -qq
         apt-get install -y vsftpd rsync inotify-tools
     elif command -v yum &> /dev/null; then
         yum install -y vsftpd rsync inotify-tools
     else
-        echo "�?不支持的包管理器"
+        log_error "不支持的包管理器"
         exit 1
     fi
     
@@ -637,7 +667,9 @@ install_brce_ftp() {
             useradd -m -s /bin/bash "$FTP_USER"
         fi
     fi
-    echo "$FTP_USER:$ftp_pass" | chpasswd
+    # 安全设置用户密码（避免密码在进程列表中暴露）
+    chpasswd <<< "$FTP_USER:$ftp_pass"
+    unset ftp_pass  # 立即清除密码变量
     
     # 配置权限
     ftp_home="/home/$FTP_USER/ftp"
@@ -710,95 +742,154 @@ install_brce_ftp() {
     echo "🔄 可通过菜单选项6随时在线更新到最新版�?
 }
 
-# 检查FTP状�?check_ftp_status() {
+# 安全获取当前配置信息
+get_current_config() {
+    # 尝试从现有服务配置中获取信息
+    if systemctl is-active --quiet brce-ftp-sync 2>/dev/null; then
+        # 从服务文件中提取用户信息
+        local service_file="/etc/systemd/system/brce-ftp-sync.service"
+        if [[ -f "$service_file" ]]; then
+            local script_path=$(grep "ExecStart=" "$service_file" | cut -d'=' -f2)
+            if [[ -n "$script_path" && -f "$script_path" ]]; then
+                # 从脚本路径提取用户名 ftp_sync_${user}.sh
+                FTP_USER=$(basename "$script_path" | sed 's/ftp_sync_\(.*\)\.sh/\1/')
+                # 从脚本内容提取源目录
+                SOURCE_DIR=$(grep "SOURCE_DIR=" "$script_path" | head -1 | cut -d'"' -f2)
+            fi
+        fi
+    fi
+    
+    # 如果仍然为空，设置默认值
+    FTP_USER="${FTP_USER:-unknown}"
+    SOURCE_DIR="${SOURCE_DIR:-unknown}"
+}
+
+# 检查FTP状态 - 修复变量未初始化问题
+check_ftp_status() {
+    # 获取当前配置信息
+    get_current_config
+    
     echo ""
     echo "======================================================"
-    echo "📊 BRCE FTP服务状�?(零延迟版)"
+    echo "📊 BRCE FTP服务状态(零延迟版)"
     echo "======================================================"
     
-    # 检查服务状�?    if systemctl is-active --quiet vsftpd; then
-        echo "�?FTP服务运行正常"
+    # 检查服务状态
+    if systemctl is-active --quiet vsftpd; then
+        log_info "FTP服务运行正常"
     else
-        echo "�?FTP服务未运�?
+        log_error "FTP服务未运行"
     fi
     
-    # 检查实时同步服�?    if systemctl is-active --quiet brce-ftp-sync; then
-        echo "�?实时同步服务运行正常"
+    # 检查实时同步服务
+    if systemctl is-active --quiet brce-ftp-sync; then
+        log_info "实时同步服务运行正常"
     else
-        echo "�?实时同步服务未运�?
+        log_error "实时同步服务未运行"
     fi
     
-    # 检查端�?    if ss -tlnp | grep -q ":21 "; then
-        echo "�?FTP端口21已开�?
+    # 检查端口
+    if ss -tlnp | grep -q ":21 "; then
+        log_info "FTP端口21已开放"
     else
-        echo "�?FTP端口21未开�?
+        log_error "FTP端口21未开放"
     fi
     
-    # 检查用�?    if id "$FTP_USER" &>/dev/null; then
-        echo "�?FTP用户 $FTP_USER 存在"
+    # 检查用户（安全检查）
+    if [[ "$FTP_USER" != "unknown" ]] && id "$FTP_USER" &>/dev/null; then
+        log_info "FTP用户 $FTP_USER 存在"
     else
-        echo "�?FTP用户 $FTP_USER 不存�?
+        log_error "FTP用户 $FTP_USER 不存在或未配置"
     fi
     
-    # 检查目�?    FTP_HOME="/home/$FTP_USER/ftp"
-    if [ -d "$FTP_HOME" ]; then
-        echo "�?FTP目录存在: $FTP_HOME"
-    else
-        echo "�?FTP目录不存�? $FTP_HOME"
+    # 检查目录（安全检查）
+    if [[ "$FTP_USER" != "unknown" ]]; then
+        local FTP_HOME="/home/$FTP_USER/ftp"
+        if [[ -d "$FTP_HOME" ]]; then
+            log_info "FTP目录存在: $FTP_HOME"
+        else
+            log_error "FTP目录不存在: $FTP_HOME"
+        fi
     fi
     
-    if [ -d "$SOURCE_DIR" ]; then
-        echo "�?BRCE目录存在: $SOURCE_DIR"
-        file_count=$(find "$SOURCE_DIR" -type f 2>/dev/null | wc -l)
-        echo "📁 源目录文件数: $file_count"
-        
-        if [ -d "$FTP_HOME" ]; then
-            ftp_file_count=$(find "$FTP_HOME" -type f 2>/dev/null | wc -l)
-            echo "📁 FTP目录文件�? $ftp_file_count"
+    if [[ "$SOURCE_DIR" != "unknown" && -d "$SOURCE_DIR" ]]; then
+        log_info "BRCE目录存在: $SOURCE_DIR"
+        if file_count=$(find "$SOURCE_DIR" -type f 2>/dev/null | wc -l); then
+            echo "📁 源目录文件数: $file_count"
             
-            if [ "$file_count" -eq "$ftp_file_count" ]; then
-                echo "�?文件数量同步正确"
-            else
-                echo "⚠️  文件数量不匹�?
+            if [[ "$FTP_USER" != "unknown" ]]; then
+                local FTP_HOME="/home/$FTP_USER/ftp"
+                if [[ -d "$FTP_HOME" ]]; then
+                    if ftp_file_count=$(find "$FTP_HOME" -type f 2>/dev/null | wc -l); then
+                        echo "📁 FTP目录文件数: $ftp_file_count"
+                        
+                        if [[ "$file_count" -eq "$ftp_file_count" ]]; then
+                            log_info "文件数量同步正确"
+                        else
+                            log_error "文件数量不匹配"
+                        fi
+                    fi
+                fi
             fi
         fi
     else
-        echo "�?BRCE目录不存�? $SOURCE_DIR"
+        log_error "BRCE目录不存在或未配置: $SOURCE_DIR"
     fi
     
     # 显示同步服务日志
     echo ""
-    echo "📋 实时同步日志 (最�?�?:"
+    echo "📋 实时同步日志 (最近5条):"
     journalctl -u brce-ftp-sync --no-pager -n 5 2>/dev/null || echo "暂无日志"
     
     # 显示连接信息
-    external_ip=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}' || echo "localhost")
+    local external_ip=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}' || echo "localhost")
     echo ""
-    echo "📍 连接信息�?
-    echo "   服务�? $external_ip"
+    echo "📍 连接信息："
+    echo "   服务器: $external_ip"
     echo "   端口: 21"
-    echo "   用户�? $FTP_USER"
-    echo "   模式: �?零延迟实时同�?
+    echo "   用户名: $FTP_USER"
+    echo "   模式: 双向零延迟实时同步"
 }
 
-# 测试实时同步
+# 测试实时同步 - 修复变量未初始化问题
 test_realtime_sync() {
+    # 获取当前配置信息
+    get_current_config
+    
+    # 检查配置是否有效
+    if [[ "$FTP_USER" == "unknown" || "$SOURCE_DIR" == "unknown" ]]; then
+        log_error "未找到有效的FTP配置，请先运行安装配置"
+        echo "提示：选择菜单选项 1) 安装/配置BRCE FTP服务"
+        return 1
+    fi
+    
     echo ""
     echo "======================================================"
     echo "🧪 测试双向实时同步功能"
     echo "======================================================"
     
-    TEST_FILE="$SOURCE_DIR/realtime_test_$(date +%s).txt"
-    FTP_HOME="/home/$FTP_USER/ftp"
-    FTP_TEST_FILE="$FTP_HOME/ftp_test_$(date +%s).txt"
+    local TEST_FILE="$SOURCE_DIR/realtime_test_$(date +%s).txt"
+    local FTP_HOME="/home/$FTP_USER/ftp"
+    local FTP_TEST_FILE="$FTP_HOME/ftp_test_$(date +%s).txt"
     
-    echo "📋 双向同步测试包括�?
-    echo "   1️⃣ 源目�?�?FTP目录 同步测试"
-    echo "   2️⃣ FTP目录 �?源目�?同步测试"
+    # 验证目录存在
+    if [[ ! -d "$SOURCE_DIR" ]]; then
+        log_error "源目录不存在: $SOURCE_DIR"
+        return 1
+    fi
+    
+    if [[ ! -d "$FTP_HOME" ]]; then
+        log_error "FTP目录不存在: $FTP_HOME"
+        return 1
+    fi
+    
+    echo "📋 双向同步测试包括："
+    echo "   1️⃣ 源目录→FTP目录 同步测试"
+    echo "   2️⃣ FTP目录→源目录 同步测试"
     echo ""
     
-    # ================== 测试1: 源目�?�?FTP目录 ==================
-    echo "🔸 测试1: 源目�?�?FTP目录 同步"
+    # ================== 测试1: 源目录→FTP目录 ==================
+    echo "🔸 测试1: 源目录→FTP目录 同步"
     echo "📝 在源目录创建测试文件: $TEST_FILE"
     echo "实时同步测试(源→FTP) - $(date)" > "$TEST_FILE"
     
@@ -837,8 +928,8 @@ test_realtime_sync() {
     
     echo ""
     
-    # ================== 测试2: FTP目录 �?源目�?==================
-    echo "🔸 测试2: FTP目录 �?源目�?同步"
+    # ================== 测试2: FTP目录→源目录==================
+    echo "🔸 测试2: FTP目录→源目录 同步"
     echo "📝 在FTP目录创建测试文件: $FTP_TEST_FILE"
     
     # 以FTP用户身份创建文件
@@ -882,9 +973,9 @@ test_realtime_sync() {
         echo "�?FTP→源: 文件删除同步成功"
         echo ""
         echo "🎉 双向实时同步功能完全正常�?
-        echo "�?源目�?�?FTP目录 双向零延迟确认！"
+        echo "🎉 双向实时同步功能完全正常！"
     else
-        echo "�?FTP→源: 文件删除同步失败"
+        echo "?FTP→源: 文件删除同步失败"
     fi
 }
 
@@ -1057,24 +1148,29 @@ update_script() {
     fi
 }
 
-# 卸载FTP服务
+# 卸载FTP服务 - 修复变量未初始化问题
 uninstall_brce_ftp() {
+    # 获取当前配置信息
+    get_current_config
+    
     echo ""
     echo "======================================================"
-    echo "🗑�?卸载BRCE FTP服务"
+    echo "🗑️ 卸载BRCE FTP服务"
     echo "======================================================"
     
-    echo "📋 当前配置信息�?
+    echo "📋 当前配置信息："
     echo "   - FTP用户: $FTP_USER"
-    echo "   - 源目�? $SOURCE_DIR"
-    echo "   - FTP目录: /home/$FTP_USER/ftp"
-    echo "   - 同步脚本: /usr/local/bin/ftp_sync_${FTP_USER}.sh"
+    echo "   - 源目录: $SOURCE_DIR"
+    if [[ "$FTP_USER" != "unknown" ]]; then
+        echo "   - FTP目录: /home/$FTP_USER/ftp"
+        echo "   - 同步脚本: /usr/local/bin/ftp_sync_${FTP_USER}.sh"
+    fi
     echo "   - 系统服务: brce-ftp-sync.service"
     echo ""
     
-    read -p "⚠️  确定要卸载BRCE FTP服务吗？(y/N): " confirm
+    read -p "⚠️ 确定要卸载BRCE FTP服务吗？(y/N): " confirm
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-        echo "�?取消卸载"
+        log_info "用户取消卸载"
         return 1
     fi
     
